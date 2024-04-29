@@ -1,23 +1,24 @@
-import socket
+import asyncio
+
+PONG = b"+PONG\r\n"
 
 
-def main():    
+async def main():    
     print("Logs from your program will appear here!")
-
-    pong = "+PONG\r\n"
     
-    server_socket = socket.create_server(("localhost", 6379), reuse_port=True)
-    conn, addr = server_socket.accept()
+    server = await asyncio.start_server(handle_client, host="localhost", port=6379)
+    await server.serve_forever()
+    
 
+async def handle_client(client_reader, client_writer):
     while True:
-        try:
-            data = conn.recv(1024)
-            conn.send(pong.encode())
-        except Exception as e:
-            print(f"Got error: {e}")        
-    
-    # conn.close()
-    # server_socket.close()
+        data = await client_reader.read(1024)
+        if not data:
+            break
+        client_writer.write(PONG)
+        await client_writer.drain()
+    client_writer.close()
+
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
