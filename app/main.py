@@ -1,9 +1,9 @@
 import asyncio
+import logging
 from enum import Enum
 
-
-PONG = "+PONG\r\n"
-
+# Setup basic logging
+logging.basicConfig(level=logging.INFO)
 
 class Byte(Enum):
     ARRAY = "*"
@@ -15,63 +15,55 @@ class Command(str, Enum):
     ECHO = "echo"
 
 
-# *2\r\n$4\r\necho\r\n$3\r\nhey\r\n
-# echo -ne "*2\r\n$4\r\necho\r\n$3\r\nhey\r\n" | nc localhost 6379
 class RedisProtocol:
     def parse(self, request: str):
-        return request.split("\r\n")
-    
+        lines = request.strip().split("\r\n")
+        command = lines[2].lower()
+        args = lines[3:]
+        return command, args
 
-class Handlers:
+class Response:
     @staticmethod
-    def ping(args):
-        return PONG
-    
-    @staticmethod
-    def echo(args):
-        response = []
-        
-        for arg in args:
-            response.append(f"${len(arg)}")
-            response.append(arg)
-        response.append("")
-
-        return "\r\n".join(response)
-    
-
-HANDLERS_MAP = {
-    Command.PING: Handlers.ping,
-    Command.ECHO: Handlers.echo,
-}
-
+    def format_response(status: str, *messages):
+        if status == "OK":
+            parts = ["+" + message for message in messages]
+        elif status == "ERR":
+            parts = ["-" + message for message in messages]
+        elif status == "DATA":
+            messages_ = [messages[1]]
+            parts = [f"${len(message)}\r\n{message}" for message in messages_]
+        parts.append("")
+        return "\r\n".join(parts)
 
 async def main():    
-    print("Logs from your program will appear here!")
+    logging.info("Server is starting up...")
     
     server = await asyncio.start_server(handle_client, host="localhost", port=6379)
+    logging.info("Server started on localhost:6379")
     await server.serve_forever()
-    
 
 async def handle_client(client_reader, client_writer):
     redis_protocol = RedisProtocol()
     
     while request := await client_reader.read(1024):
-        
-        args = redis_protocol.parse(request.decode("utf-8"))
-        cmd = args[2].lower()
-        response = ""
-        match cmd:
-            case "ping":
-                response = PONG
-            case "echo":
-                response = Handlers.echo([args[4]])
+        if request:
+            command, args = redis_protocol.parse(request.decode("utf-8"))
+            response = dispatch_command(command, args)
 
-        client_writer.write(response.encode())
-        
-        await client_writer.drain()
+            client_writer.write(response.encode())
+            await client_writer.drain()
     
     client_writer.close()
+    logging.info("Connection closed")
 
+def dispatch_command(command, args):
+    match command:
+        case Command.PING.value:
+            return Response.format_response("OK", "PONG")
+        case Command.ECHO.value:
+            return Response.format_response("DATA", *args)
+        case _:
+            return Response.format_response("ERR", "Unknown command")
 
 if __name__ == "__main__":
     asyncio.run(main())
