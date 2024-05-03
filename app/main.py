@@ -2,8 +2,11 @@ import asyncio
 import logging
 from enum import Enum
 
-# Setup basic logging
+
 logging.basicConfig(level=logging.INFO)
+
+MEMO = {}
+
 
 class Byte(Enum):
     ARRAY = "*"
@@ -13,6 +16,8 @@ class Byte(Enum):
 class Command(str, Enum):
     PING = "ping"
     ECHO = "echo"
+    SET = "set"
+    GET = "get"
 
 
 class RedisProtocol:
@@ -22,18 +27,43 @@ class RedisProtocol:
         args = lines[3:]
         return command, args
 
+
 class Response:
     @staticmethod
-    def format_response(status: str, *messages):
-        if status == "OK":
-            parts = ["+" + message for message in messages]
-        elif status == "ERR":
-            parts = ["-" + message for message in messages]
-        elif status == "DATA":
-            messages_ = [messages[1]]
-            parts = [f"${len(message)}\r\n{message}" for message in messages_]
-        parts.append("")
-        return "\r\n".join(parts)
+    def format(status: str, *messages):
+        response = []
+        match status:
+            case "OK":
+                response = ["+" + message for message in messages]
+            case "ERR":
+                response = ["-" + message for message in messages]
+            case "DATA":
+                response = [f"${len(message)}\r\n{message}" for message in messages]
+            case "NULL":
+                response = [f"$-1"]
+        response.append("")
+        return "\r\n".join(response)
+    
+
+def dispatch_command(command, args):
+    match command:
+        case Command.PING.value:
+            return Response.format("OK", "PONG")
+        case Command.ECHO.value:
+            args.pop(0)
+            return Response.format("DATA", *args)
+        case Command.SET.value:
+            MEMO[args[1]] = args[3]
+            return Response.format("OK", "OK")
+        case Command.GET.value:
+            try:
+                value = MEMO[args[1]]
+                return Response.format("DATA", *[value])
+            except KeyError:
+                return Response.format("NULL")
+        case _:
+            return Response.format("ERR", "Unknown command")
+           
 
 async def main():    
     logging.info("Server is starting up...")
@@ -56,14 +86,6 @@ async def handle_client(client_reader, client_writer):
     client_writer.close()
     logging.info("Connection closed")
 
-def dispatch_command(command, args):
-    match command:
-        case Command.PING.value:
-            return Response.format_response("OK", "PONG")
-        case Command.ECHO.value:
-            return Response.format_response("DATA", *args)
-        case _:
-            return Response.format_response("ERR", "Unknown command")
 
 if __name__ == "__main__":
     asyncio.run(main())
