@@ -13,6 +13,7 @@ class Command(str, Enum):
     ECHO = "echo"
     SET = "set"
     GET = "get"
+    INFO = "info"
 
 
 class CommandStrategy(ABC):
@@ -68,6 +69,13 @@ class GetCommand(CommandStrategy):
         return Response.data(value)
 
 
+class InfoCommand(CommandStrategy):
+    def execute(self, args):
+        if len(args) < 2:
+            return Response.error("INFO command requires an argument")
+        return Response.data("role:master")
+
+
 class UnknownCommand(CommandStrategy):
     def execute(self, args):
         return Response.error("Unknown command")
@@ -80,6 +88,7 @@ class CommandContext:
             Command.ECHO.value: EchoCommand(),
             Command.SET.value: SetCommand(),
             Command.GET.value: GetCommand(),
+            Command.INFO.value: InfoCommand(),
         }
         self.strategy = self.strategies.get(command, UnknownCommand())
 
