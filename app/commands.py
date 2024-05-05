@@ -18,8 +18,8 @@ class Command(str, Enum):
 
 
 class CommandStrategy(ABC):
-    def __init__(self, server_config: ServerConfig):
-        self.server_config = server_config
+    def __init__(self, config: ServerConfig):
+        self.config = config
 
     @abstractmethod
     def execute(self, args):
@@ -77,7 +77,12 @@ class InfoCommand(CommandStrategy):
     def execute(self, args):
         if len(args) == 0:
             return Response.error("INFO command requires an argument")
-        return Response.data(f"role:{self.server_config.mode.value}")
+        info = [
+            f"role:{self.config.mode.value}",
+            f"master_replid:{self.config.master_replid}",
+            f"master_repl_offset:{self.config.master_repl_offset}",
+        ]
+        return Response.data(",".join(info))
 
 
 class UnknownCommand(CommandStrategy):
@@ -86,16 +91,16 @@ class UnknownCommand(CommandStrategy):
 
 
 class CommandContext:
-    def __init__(self, server_config: ServerConfig):
-        self.server_config = server_config
+    def __init__(self, config: ServerConfig):
+        self.config = config
         self.strategies = {
-            Command.PING.value: PingCommand(server_config),
-            Command.ECHO.value: EchoCommand(server_config),
-            Command.SET.value: SetCommand(server_config),
-            Command.GET.value: GetCommand(server_config),
-            Command.INFO.value: InfoCommand(server_config),
+            Command.PING.value: PingCommand(config),
+            Command.ECHO.value: EchoCommand(config),
+            Command.SET.value: SetCommand(config),
+            Command.GET.value: GetCommand(config),
+            Command.INFO.value: InfoCommand(config),
         }
 
     def execute(self, command: Command, args):
-        self.strategy = self.strategies.get(command, UnknownCommand(self.server_config))
+        self.strategy = self.strategies.get(command, UnknownCommand(self.config))
         return self.strategy.execute(args)
