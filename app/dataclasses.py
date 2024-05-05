@@ -14,3 +14,9 @@ class ServerConfig:
     mode: Mode
     master_replid: str = "8371b4fb1155b71f4a04d3e1bc3e18c4a990aeeb"
     master_repl_offset: int = 0
+
+
+@dataclass
+class Response:
+    data: str | list
+    type: str

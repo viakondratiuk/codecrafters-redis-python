@@ -1,27 +1,39 @@
-class Response:
-    @staticmethod
-    def _format(payload: list):
-        return "\r\n".join(payload + [""])
+from enum import Enum
 
-    @staticmethod
-    def _build_response(prefix: str, messages: tuple, formatter=lambda x: x):
-        payload = [f"{prefix}{formatter(message)}" for message in messages]
-        return Response._format(payload)
+from app.dataclasses import Response
 
-    @staticmethod
-    def ok(*messages):
-        return Response._build_response("+", messages)
 
-    @staticmethod
-    def error(*messages):
-        return Response._build_response("-", messages)
+class RESP(str, Enum):
+    SIMPLE_STRING = "+"
+    ERROR = "-"
+    INTEGER = ":"
+    BULK_STRING = "$"
+    ARRAY = "*"
+    NULL_BUK_STRING = "_"
+    BOOLEAN = "#"
+    DOUBLE = ","
 
-    @staticmethod
-    def data(*messages):
-        return Response._build_response(
-            "$", messages, lambda msg: f"{len(msg)}\r\n{msg}"
-        )
 
+class RedisResponse:
     @staticmethod
-    def null(*messages):
-        return Response._format(["$-1"])
+    def encode(data: Response) -> str:
+        match data.type:
+            case RESP.SIMPLE_STRING:
+                return f"{RESP.SIMPLE_STRING.value}{data.data}\r\n"
+            case RESP.ERROR:
+                return f"{RESP.ERROR.value}{data.data}\r\n"
+            case RESP.INTEGER:
+                return f"{RESP.INTEGER.value}{data.data}\r\n"
+            case RESP.BULK_STRING:
+                return f"{RESP.BULK_STRING.value}{len(data.data)}\r\n{data.data}\r\n"
+            case RESP.ARRAY:
+                result = f"{RESP.ARRAY.value}{len(data.data)}\r\n"
+                for item in data.data:
+                    result += RedisResponse.encode(item)
+                return result
+            case RESP.NULL_BUK_STRING:
+                return "$-1\r\n"
+            case RESP.BOOLEAN:
+                return f"{RESP.BOOLEAN.value}{data.data}\r\n"
+            case RESP.DOUBLE:
+                return f"{RESP.DOUBLE.value}{data.data}\r\n"

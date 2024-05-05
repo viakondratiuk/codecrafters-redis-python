@@ -4,7 +4,9 @@ import logging
 
 from app import constants
 from app.commands import CommandContext
-from app.dataclasses import Mode, ServerConfig
+from app.dataclasses import Mode, Response, ServerConfig
+from app.request import RedisRequest
+from app.response import RESP, RedisResponse
 
 logging.basicConfig(level=logging.INFO)
 
@@ -12,7 +14,6 @@ logging.basicConfig(level=logging.INFO)
 class RedisServer:
     def __init__(self, config: ServerConfig):
         self.config = config
-        self.protocol = RedisProtocol()
         self.command_context = CommandContext(config)
 
     async def start(self):
@@ -21,23 +22,28 @@ class RedisServer:
         )
         await server.serve_forever()
 
-    async def handle_client(self, client_reader, client_writer):
-        while request := await client_reader.read(1024):
+    async def handle_client(self, reader, writer):
+        while request := await reader.read(1024):
             if request:
-                command, args = self.protocol.parse(request.decode("utf-8"))
-                response = self.command_context.execute(command, args)
-                client_writer.write(response.encode())
-                await client_writer.drain()
-        client_writer.close()
+                print(request.decode("utf-8"))
+                command, args = RedisRequest.parse(request.decode("utf-8"))
+                data = self.command_context.execute(command, args)
+                response = RedisResponse.encode(data)
+                writer.write(response.encode())
+                await writer.drain()
+        writer.close()
         logging.info("Connection closed")
 
-
-class RedisProtocol:
-    def parse(self, request: str):
-        args = [arg.lower() for arg in request.strip().split("\r\n")]
-        return args[2], [
-            arg for idx, arg in enumerate(args) if idx >= 4 and idx % 2 == 0
-        ]
+    async def send_handshake(self, master_host, master_port):
+        handshake = RedisResponse.encode(
+            Response([Response("PING", RESP.BULK_STRING)], RESP.ARRAY)
+        )
+        _, writer = await asyncio.open_connection(master_host, master_port)
+        try:
+            writer.write(handshake.encode())
+            await writer.drain()
+        finally:
+            writer.close()
 
 
 def parse_args():
@@ -68,6 +74,9 @@ async def main():
         mode=Mode.MASTER if args.replicaof is None else Mode.SLAVE,
     )
     server = RedisServer(config)
+    if config.mode == Mode.SLAVE:
+        await server.send_handshake(args.replicaof[0], int(args.replicaof[1]))
+
     logging.info(f"Server is starting on {config.host}:{config.port}")
     await server.start()
 
