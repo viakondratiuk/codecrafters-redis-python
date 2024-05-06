@@ -1,6 +1,6 @@
 from enum import Enum
 
-from app.dataclasses import Response
+from app.dataclasses import Result
 
 
 class RESP(str, Enum):
@@ -14,26 +14,28 @@ class RESP(str, Enum):
     DOUBLE = ","
 
 
-class RedisResponse:
+class Response:
     @staticmethod
-    def encode(data: Response) -> str:
-        match data.type:
+    def encode(result: Result) -> str:
+        match result.type:
             case RESP.SIMPLE_STRING:
-                return f"{RESP.SIMPLE_STRING.value}{data.data}\r\n"
+                return f"{RESP.SIMPLE_STRING.value}{result.data}\r\n"
             case RESP.ERROR:
-                return f"{RESP.ERROR.value}{data.data}\r\n"
+                return f"{RESP.ERROR.value}{result.data}\r\n"
             case RESP.INTEGER:
-                return f"{RESP.INTEGER.value}{data.data}\r\n"
+                return f"{RESP.INTEGER.value}{result.data}\r\n"
             case RESP.BULK_STRING:
-                return f"{RESP.BULK_STRING.value}{len(data.data)}\r\n{data.data}\r\n"
+                return (
+                    f"{RESP.BULK_STRING.value}{len(result.data)}\r\n{result.data}\r\n"
+                )
             case RESP.ARRAY:
-                result = f"{RESP.ARRAY.value}{len(data.data)}\r\n"
-                for item in data.data:
-                    result += RedisResponse.encode(item)
-                return result
+                out = f"{RESP.ARRAY.value}{len(result.data)}\r\n"
+                for item in result.data:
+                    out += Response.encode(item)
+                return out
             case RESP.NULL_BUK_STRING:
                 return "$-1\r\n"
             case RESP.BOOLEAN:
-                return f"{RESP.BOOLEAN.value}{data.data}\r\n"
+                return f"{RESP.BOOLEAN.value}{result.data}\r\n"
             case RESP.DOUBLE:
-                return f"{RESP.DOUBLE.value}{data.data}\r\n"
+                return f"{RESP.DOUBLE.value}{result.data}\r\n"

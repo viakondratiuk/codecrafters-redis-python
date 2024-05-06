@@ -1,4 +1,4 @@
-class RedisRequest:
+class Request:
     @staticmethod
     def parse(request: str):
         args = [arg.lower() for arg in request.strip().split("\r\n")]

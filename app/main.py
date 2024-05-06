@@ -3,10 +3,10 @@ import asyncio
 import logging
 
 from app import constants
-from app.commands import CommandContext
-from app.dataclasses import Mode, Response, ServerConfig
-from app.request import RedisRequest
-from app.response import RESP, RedisResponse
+from app.commands import Command
+from app.dataclasses import Mode, ServerConfig
+from app.request import Request
+from app.response import Response
 
 logging.basicConfig(level=logging.INFO)
 
@@ -14,9 +14,14 @@ logging.basicConfig(level=logging.INFO)
 class RedisServer:
     def __init__(self, config: ServerConfig):
         self.config = config
-        self.command_context = CommandContext(config)
+        self.master_link = None
+        if config.mode == Mode.SLAVE:
+            self.master_link = RedisClient(config)
 
     async def start(self):
+        if self.config.mode == Mode.SLAVE:
+            await self.master_link.handshake()
+
         server = await asyncio.start_server(
             self.handle_client, self.config.host, self.config.port
         )
@@ -25,25 +30,59 @@ class RedisServer:
     async def handle_client(self, reader, writer):
         while request := await reader.read(1024):
             if request:
-                print(request.decode("utf-8"))
-                command, args = RedisRequest.parse(request.decode("utf-8"))
-                data = self.command_context.execute(command, args)
-                response = RedisResponse.encode(data)
+                command, args = Request.parse(request.decode())
+                logging.info(f"Executing command: {command} with args: {args}")
+                result = Command.run(command, self.config, *args)
+                response = Response.encode(result)
+                logging.info(f"Response: {response}")
                 writer.write(response.encode())
                 await writer.drain()
         writer.close()
         logging.info("Connection closed")
 
-    async def send_handshake(self, master_host, master_port):
-        handshake = RedisResponse.encode(
-            Response([Response("PING", RESP.BULK_STRING)], RESP.ARRAY)
+
+class RedisClient:
+    def __init__(self, config: ServerConfig):
+        self.config = config
+        self.reader = None
+        self.writer = None
+
+    async def connect(self):
+        self.reader, self.writer = await asyncio.open_connection(
+            self.config.master_host, self.config.master_port
         )
-        _, writer = await asyncio.open_connection(master_host, master_port)
+
+    async def send_command(self, command_function, *args):
+        command = Response.encode(command_function(*args))
+        logging.info(f"Sending command:\r\n{command}")
+        self.writer.write(command.encode())
+        await self.writer.drain()
+
         try:
-            writer.write(handshake.encode())
-            await writer.drain()
-        finally:
-            writer.close()
+            response = await asyncio.wait_for(self.reader.read(1024), timeout=10)  # Timeout of 10 seconds
+            decoded_response = response.decode()
+            logging.info(f"Received response:\r\n{decoded_response}")
+            return decoded_response
+        except asyncio.TimeoutError:
+            logging.error("Timed out waiting for response")
+            return None
+        except Exception as e:
+            logging.error(f"Error receiving response: {e}")
+            return None
+
+    async def handshake(self):
+        if not self.writer:
+            await self.connect()
+
+        await self.send_command(Command.ping)
+        await self.send_command(
+            Command.replconf, "listening-port", str(self.config.port))
+        await self.send_command(Command.replconf, "capa", "psync2")
+
+    async def close(self):
+        if self.writer:
+            self.writer.close()
+            await self.writer.wait_closed()
 
 
 def parse_args():
@@ -70,15 +109,17 @@ async def main():
 
     config = ServerConfig(
         host="localhost",
-        port=args.port,
-        mode=Mode.MASTER if args.replicaof is None else Mode.SLAVE,
+        port=int(args.port),
     )
-    server = RedisServer(config)
-    if config.mode == Mode.SLAVE:
-        await server.send_handshake(args.replicaof[0], int(args.replicaof[1]))
+    if args.replicaof is not None:
+        config.mode = Mode.SLAVE
+        config.master_host = args.replicaof[0]
+        config.master_port = int(args.replicaof[1])
 
+    server = RedisServer(config)
     logging.info(f"Server is starting on {config.host}:{config.port}")
     await server.start()
+    logging.info("Server started")
 
 
 if __name__ == "__main__":
