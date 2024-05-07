@@ -35,7 +35,7 @@ class CommandRunner:
             case Command.REPLCONF.value:
                 return CommandRunner.replconf(*args)
             case Command.PSYNC.value:
-                return CommandRunner.psync(*args)
+                return CommandRunner.psync(config, *args)
             case _:
                 return CommandRunner.unknown()
 
@@ -105,8 +105,8 @@ class CommandRunner:
         return Encoder.simple_string("OK")
 
     @staticmethod
-    def psync(*args):
-        Encoder.simple_string("FULLRESYNC <REPL_ID> 0")
+    def psync(config: ServerConfig, *args):
+        return Encoder.simple_string(f"FULLRESYNC {config.master_replid} 0")
 
 
 class CommandBuilder:
