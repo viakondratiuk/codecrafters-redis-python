@@ -25,13 +25,13 @@ class RedisServer:
         await server.serve_forever()
 
     async def handle_client(self, reader, writer):
-        while request := await reader.read(1024):
+        while request := await reader.read(4096):
             if request:
                 command, args = Decoder.decode(request.decode())
                 logging.info(f"Running command: {command} with args: {args}")
                 response = CommandRunner.run(command, self.config, *args)
                 logging.info(f"Sending response: {response}")
-                writer.write(response.encode())
+                writer.write(response)
                 await writer.drain()
         writer.close()
         logging.info("Connection closed")
@@ -50,11 +50,11 @@ class RedisClient:
 
     async def send(self, command):
         logging.info(f"Sending command:\r\n{command}")
-        self.writer.write(command.encode())
+        self.writer.write(command)
         await self.writer.drain()
 
         try:
-            response = await asyncio.wait_for(self.reader.read(1024), timeout=10)
+            response = await asyncio.wait_for(self.reader.read(4096), timeout=10)
             decoded_response = response.decode()
             logging.info(f"Received response:\r\n{decoded_response}")
             return decoded_response

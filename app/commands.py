@@ -3,6 +3,8 @@ from enum import Enum
 
 from app.dataclasses import ServerConfig
 from app.encoder import Encoder
+from app.utils import read_db
+from app.constants import EMPTY_RDB
 
 MEMO = {}
 PXS = {}
@@ -18,6 +20,7 @@ class Command(str, Enum):
     PSYNC = "psync"
 
 
+# TODO: Maybe rename as response to, or send_ping, respond_ping
 class CommandRunner:
     @staticmethod
     def run(command: Command, config: ServerConfig, *args):
@@ -35,7 +38,7 @@ class CommandRunner:
             case Command.REPLCONF.value:
                 return CommandRunner.replconf(*args)
             case Command.PSYNC.value:
-                return CommandRunner.psync(config, *args)
+                return CommandRunner.psync(config, *args) + CommandRunner.rdb_file(*args)
             case _:
                 return CommandRunner.unknown()
 
@@ -107,9 +110,14 @@ class CommandRunner:
     @staticmethod
     def psync(config: ServerConfig, *args):
         return Encoder.simple_string(f"FULLRESYNC {config.master_replid} 0")
+    
+    @staticmethod
+    def rdb_file(*args):
+        data = read_db(EMPTY_RDB)
+        return Encoder.rdb_file(data)
 
 
 class CommandBuilder:
     @staticmethod
     def build(*args):
-        return Encoder.array([Encoder.bulk_string(a) for a in args])
+        return Encoder.array([Encoder.bulk_string(a, is_encode=False) for a in args])
