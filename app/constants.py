@@ -1,1 +1,2 @@
 DEFAULT_PORT = 6379
+TERMINATOR = "\r\n"

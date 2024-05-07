@@ -1,6 +1,6 @@
-class Request:
+class Decoder:
     @staticmethod
-    def parse(request: str):
+    def decode(request: str):
         args = [arg.lower() for arg in request.strip().split("\r\n")]
         return args[2], [
             arg for idx, arg in enumerate(args) if idx >= 4 and idx % 2 == 0
