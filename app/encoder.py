@@ -16,12 +16,15 @@ class RESP(str, Enum):
 
 
 class Encoder:
+    # @staticmethod
+    # def bulk_string(value: str, is_encode: bool = True):
+    #     result = f"{RESP.BULK_STRING.value}{len(value)}{TERMINATOR}{value}{TERMINATOR}"
+    #     if is_encode:
+    #         return result.encode()
+    #     return result
     @staticmethod
-    def bulk_string(value: str, is_encode: bool = True):
-        result = f"{RESP.BULK_STRING.value}{len(value)}{TERMINATOR}{value}{TERMINATOR}"
-        if is_encode:
-            return result.encode()
-        return result
+    def bulk_string(value: str):
+        return f"{RESP.BULK_STRING.value}{len(value)}{TERMINATOR}{value}{TERMINATOR}".encode()
 
     @staticmethod
     def simple_string(value: str):
@@ -45,9 +48,9 @@ class Encoder:
 
     @staticmethod
     def array(items: list):
-        result = f"{RESP.ARRAY.value}{len(items)}{TERMINATOR}"
+        result = f"{RESP.ARRAY.value}{len(items)}{TERMINATOR}".encode()
         result += "".join(items)
-        return result.encode()
+        return result
 
     @staticmethod
     def null_bulk_string():

@@ -1,8 +1,8 @@
 import asyncio
 import logging
 
-from app.commands import CommandBuilder, CommandRunner
-from app.dataclasses import Mode, ServerConfig
+from app.commands import CommandBuilder, CommandRunner, Command
+from app.dataclasses import Mode, ServerConfig, Address
 from app.decoder import Decoder
 
 logging.basicConfig(level=logging.INFO)
@@ -12,15 +12,15 @@ class RedisServer:
     def __init__(self, config: ServerConfig):
         self.config = config
         self.master_link = None
-        if config.mode == Mode.SLAVE:
-            self.master_link = RedisClient(config)
+        if config.mode == Mode.REPLICA:
+            self.master_link = RedisReplica(config)
 
     async def start(self):
-        if self.config.mode == Mode.SLAVE:
+        if self.config.mode == Mode.REPLICA:
             await self.master_link.handshake()
 
         server = await asyncio.start_server(
-            self.handle_client, self.config.host, self.config.port
+            self.handle_client, self.config.my.host, self.config.my.port
         )
         await server.serve_forever()
 
@@ -30,6 +30,19 @@ class RedisServer:
                 command, args = Decoder.decode(request.decode())
                 logging.info(f"Running command: {command} with args: {args}")
                 response = CommandRunner.run(command, self.config, *args)
+                if self.config.mode == Mode.MASTER and command == Command.REPLCONF.value and "listening-port" in args:
+                    self.config.replicas.append(
+                        Address(
+                            host="localhost",
+                            port=args[2]
+                        )
+                    )
+                if self.config.mode == Mode.MASTER and command == Command.SET.value:
+                    for replica_addr in self.config.replicas:
+                        _, replica_writer = await asyncio.open_connection(
+                            replica_addr.host, replica_addr.port
+                        )
+                        replica_writer.write(request)
                 logging.info(f"Sending response: {response}")
                 writer.write(response)
                 await writer.drain()
@@ -37,7 +50,7 @@ class RedisServer:
         logging.info("Connection closed")
 
 
-class RedisClient:
+class RedisReplica:
     def __init__(self, config: ServerConfig):
         self.config = config
         self.reader = None
@@ -45,7 +58,7 @@ class RedisClient:
 
     async def connect(self):
         self.reader, self.writer = await asyncio.open_connection(
-            self.config.master_host, self.config.master_port
+            self.config.master.host, self.config.master.port
         )
 
     async def send(self, command):
@@ -71,7 +84,7 @@ class RedisClient:
 
         await self.send(CommandBuilder.build("PING"))
         await self.send(
-            CommandBuilder.build("REPLCONF", "listening-port", str(self.config.port))
+            CommandBuilder.build("REPLCONF", "listening-port", str(self.config.my.port))
         )
         await self.send(CommandBuilder.build("REPLCONF", "capa", "psync2"))
         await self.send(CommandBuilder.build("PSYNC", "?", "-1"))

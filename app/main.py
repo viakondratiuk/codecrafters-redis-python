@@ -3,7 +3,7 @@ import asyncio
 import logging
 
 from app import constants
-from app.dataclasses import Mode, ServerConfig
+from app.dataclasses import Mode, Address, ServerConfig
 from app.redis import RedisServer
 
 logging.basicConfig(level=logging.INFO)
@@ -31,17 +31,14 @@ def parse_args():
 async def main():
     args = parse_args()
 
-    config = ServerConfig(
-        host="localhost",
-        port=int(args.port),
-    )
+    address = Address(host="localhost", port=int(args.port))
+    config = ServerConfig(my=address)
     if args.replicaof is not None:
-        config.mode = Mode.SLAVE
-        config.master_host = args.replicaof[0]
-        config.master_port = int(args.replicaof[1])
+        config.mode = Mode.REPLICA
+        config.master = Address(host=args.replicaof[0], port=int(args.replicaof[1]))
 
     server = RedisServer(config)
-    logging.info(f"Server is starting on {config.host}:{config.port}")
+    logging.info(f"Server is starting on {config.my.host}:{config.my.port}")
     await server.start()
     logging.info("Server started")
 

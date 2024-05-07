@@ -120,4 +120,5 @@ class CommandRunner:
 class CommandBuilder:
     @staticmethod
     def build(*args):
-        return Encoder.array([Encoder.bulk_string(a, is_encode=False) for a in args])
+        # return Encoder.array([Encoder.bulk_string(a, is_encode=False) for a in args])
+        return Encoder.array([Encoder.bulk_string(a) for a in args])
