@@ -1,11 +1,11 @@
 import asyncio
 import logging
-
-from app.commands import CommandBuilder, CommandRunner, Command
-from app.dataclasses import Mode, ServerConfig, Address
-from app.decoder import Decoder
-from app.constants import CHUNK_SIZE
 from typing import AsyncIterator
+
+from app.commands import Command, CommandBuilder, CommandRunner
+from app.constants import CHUNK_SIZE
+from app.dataclasses import Mode, ServerConfig
+from app.decoder import Decoder
 
 logging.basicConfig(level=logging.INFO)
 
@@ -27,11 +27,12 @@ class RedisServer:
         async with server:
             await server.serve_forever()
 
-    async def handle_client(self, reader: asyncio.StreamReader, 
-                            writer: asyncio.StreamWriter)-> None:
+    async def handle_client(
+        self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter
+    ) -> None:
         addr = writer.get_extra_info("peername")
         logging.info(f"Connection established with {addr}")
-        
+
         try:
             async for request in self.readlines(reader):
                 if not request:
@@ -42,13 +43,13 @@ class RedisServer:
                 logging.info(f"Sending response: {response}")
                 writer.write(response)
                 await writer.drain()
-                
-                if self.config.mode == Mode.MASTER: 
+
+                if self.config.mode == Mode.MASTER:
                     if command == Command.REPLCONF.value and "listening-port" in args:
                         self.config.replicas.append((reader, writer))
                     if command == Command.SET.value:
                         await self.propagate_to_replicas(request)
-                    
+
         except ConnectionResetError:
             logging.error(f"Connection reset by peer: {addr}")
         except Exception as e:
@@ -78,7 +79,9 @@ class RedisReplica:
         self.writer = None
 
     async def connect(self):
-        self.reader, self.writer = await asyncio.open_connection(self.config.master.host, self.config.master.port)
+        self.reader, self.writer = await asyncio.open_connection(
+            self.config.master.host, self.config.master.port
+        )
 
     async def send(self, command):
         logging.info(f"Sending command:\r\n{command}")

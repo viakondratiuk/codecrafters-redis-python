@@ -1,10 +1,10 @@
 import time
 from enum import Enum
 
+from app.constants import EMPTY_RDB
 from app.dataclasses import ServerConfig
 from app.encoder import Encoder
 from app.utils import read_db
-from app.constants import EMPTY_RDB
 
 MEMO = {}
 PXS = {}
@@ -38,7 +38,9 @@ class CommandRunner:
             case Command.REPLCONF.value:
                 return CommandRunner.replconf(*args)
             case Command.PSYNC.value:
-                return CommandRunner.psync(config, *args) + CommandRunner.rdb_file(*args)
+                return CommandRunner.psync(config, *args) + CommandRunner.rdb_file(
+                    *args
+                )
             case _:
                 return CommandRunner.unknown()
 
@@ -110,7 +112,7 @@ class CommandRunner:
     @staticmethod
     def psync(config: ServerConfig, *args):
         return Encoder.simple_string(f"FULLRESYNC {config.master_replid} 0")
-    
+
     @staticmethod
     def rdb_file(*args):
         data = read_db(EMPTY_RDB)

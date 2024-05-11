@@ -3,7 +3,7 @@ import asyncio
 import logging
 
 from app import constants
-from app.dataclasses import Mode, Address, ServerConfig
+from app.dataclasses import Address, Mode, ServerConfig
 from app.redis import RedisServer
 
 logging.basicConfig(level=logging.INFO)

@@ -1,6 +1,6 @@
 from enum import Enum
 
-from app.constants import TERMINATOR
+from app.constants import TERM
 
 
 class RESP(str, Enum):
@@ -16,47 +16,40 @@ class RESP(str, Enum):
 
 
 class Encoder:
-    # @staticmethod
-    # def bulk_string(value: str, is_encode: bool = True):
-    #     result = f"{RESP.BULK_STRING.value}{len(value)}{TERMINATOR}{value}{TERMINATOR}"
-    #     if is_encode:
-    #         return result.encode()
-    #     return result
     @staticmethod
     def bulk_string(value: str):
-        return f"{RESP.BULK_STRING.value}{len(value)}{TERMINATOR}{value}{TERMINATOR}".encode()
+        return f"{RESP.BULK_STRING.value}{len(value)}{TERM}{value}{TERM}".encode()
 
     @staticmethod
     def simple_string(value: str):
-        return f"{RESP.SIMPLE_STRING.value}{value}{TERMINATOR}".encode()
+        return f"{RESP.SIMPLE_STRING.value}{value}{TERM}".encode()
 
     @staticmethod
     def error(value: str):
-        return f"{RESP.SIMPLE_STRING.value}{value}{TERMINATOR}".encode()
+        return f"{RESP.SIMPLE_STRING.value}{value}{TERM}".encode()
 
     @staticmethod
     def integer(value: int):
-        return f"{RESP.INTEGER.value}{value}{TERMINATOR}".encode()
+        return f"{RESP.INTEGER.value}{value}{TERM}".encode()
 
     @staticmethod
     def boolean(value: bool):
-        return f"{RESP.BOOLEAN.value}{value}{TERMINATOR}".encode()
+        return f"{RESP.BOOLEAN.value}{value}{TERM}".encode()
 
     @staticmethod
     def double(value: float):
-        return f"{RESP.DOUBLE.value}{value}{TERMINATOR}".encode()
+        return f"{RESP.DOUBLE.value}{value}{TERM}".encode()
 
     @staticmethod
     def array(items: list[bytes]):
-        result = f"{RESP.ARRAY.value}{len(items)}{TERMINATOR}".encode()
+        result = f"{RESP.ARRAY.value}{len(items)}{TERM}".encode()
         result += b"".join(items)
         return result
 
     @staticmethod
     def null_bulk_string():
-        return f"$-1{TERMINATOR}".encode()
-    
+        return f"$-1{TERM}".encode()
+
     @staticmethod
     def rdb_file(value: bytes):
-        return f"{RESP.RDB_FILE.value}{len(value)}{TERMINATOR}".encode() + value
-    
+        return f"{RESP.RDB_FILE.value}{len(value)}{TERM}".encode() + value
