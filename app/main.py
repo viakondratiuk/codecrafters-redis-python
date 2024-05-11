@@ -34,13 +34,12 @@ async def main():
     address = Address(host="localhost", port=int(args.port))
     config = ServerConfig(my=address)
     if args.replicaof is not None:
-        config.mode = Mode.REPLICA
+        config.mode = Mode.SLAVE
         config.master = Address(host=args.replicaof[0], port=int(args.replicaof[1]))
 
     server = RedisServer(config)
     logging.info(f"Server is starting on {config.my.host}:{config.my.port}")
     await server.start()
-    logging.info("Server started")
 
 
 if __name__ == "__main__":

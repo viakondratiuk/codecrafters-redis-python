@@ -47,9 +47,9 @@ class Encoder:
         return f"{RESP.DOUBLE.value}{value}{TERMINATOR}".encode()
 
     @staticmethod
-    def array(items: list):
+    def array(items: list[bytes]):
         result = f"{RESP.ARRAY.value}{len(items)}{TERMINATOR}".encode()
-        result += "".join(items)
+        result += b"".join(items)
         return result
 
     @staticmethod
