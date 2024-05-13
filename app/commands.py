@@ -6,43 +6,50 @@ from app.dataclasses import ServerConfig
 from app.encoder import Encoder
 from app.utils import read_db
 
-MEMO = {}
+CACHE = {}
 PXS = {}
+
+# TODO: make active cache, when add to cache, create task which will pop from cache when time ends 
 
 
 class Command(str, Enum):
-    PING = "ping"
-    ECHO = "echo"
-    SET = "set"
-    GET = "get"
-    INFO = "info"
-    REPLCONF = "replconf"
-    PSYNC = "psync"
+    PING = "PING"
+    ECHO = "ECHO"
+    SET = "SET"
+    GET = "GET"
+    INFO = "INFO"
+    REPLCONF = "REPLCONF"
+    PSYNC = "PSYNC"
+
+    @staticmethod
+    def is_repliacted(cmd):
+        return cmd in set(Command.SET.value)
 
 
 # TODO: Maybe rename as response to, or send_ping, respond_ping
 class CommandRunner:
     @staticmethod
-    def run(command: Command, config: ServerConfig, *args):
+    def run(command: str, config: ServerConfig, *args):
         match command:
             case Command.PING.value:
-                return CommandRunner.ping()
+                return [CommandRunner.ping()]
             case Command.ECHO.value:
-                return CommandRunner.echo(*args)
+                return [CommandRunner.echo(*args)]
             case Command.GET.value:
-                return CommandRunner.get(*args)
+                return [CommandRunner.get(*args)]
             case Command.SET.value:
-                return CommandRunner.set(*args)
+                return [CommandRunner.set(*args)]
             case Command.INFO.value:
-                return CommandRunner.info(config, *args)
+                return [CommandRunner.info(config, *args)]
             case Command.REPLCONF.value:
-                return CommandRunner.replconf(*args)
+                return [CommandRunner.replconf(*args)]
             case Command.PSYNC.value:
-                return CommandRunner.psync(config, *args) + CommandRunner.rdb_file(
-                    *args
-                )
+                return [
+                    CommandRunner.psync(config, *args), 
+                    CommandRunner.rdb_file(*args),
+                ]
             case _:
-                return CommandRunner.unknown()
+                return [CommandRunner.unknown()]
 
     def unknown():
         return Encoder.error("Unknown command")
@@ -66,11 +73,11 @@ class CommandRunner:
         key = args[0]
         px = PXS.get(key, float("inf"))
         if time.time() * 1000 > px:
-            MEMO.pop(key, None)
+            CACHE.pop(key, None)
             PXS.pop(key, None)
             return Encoder.null_bulk_string()
 
-        value = MEMO.get(key)
+        value = CACHE.get(key)
         if value is None:
             return Encoder.null_bulk_string()
 
@@ -88,7 +95,7 @@ class CommandRunner:
                     "SET command with PX requires a valid expiration time"
                 )
             px = time.time() * 1000 + int(args[3])
-        MEMO[key] = value
+        CACHE[key] = value
         PXS[key] = px
 
         return Encoder.simple_string("OK")
@@ -122,5 +129,4 @@ class CommandRunner:
 class CommandBuilder:
     @staticmethod
     def build(*args):
-        # return Encoder.array([Encoder.bulk_string(a, is_encode=False) for a in args])
         return Encoder.array([Encoder.bulk_string(a) for a in args])

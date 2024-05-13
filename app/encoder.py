@@ -26,7 +26,7 @@ class Encoder:
 
     @staticmethod
     def error(value: str):
-        return f"{RESP.SIMPLE_STRING.value}{value}{TERM}".encode()
+        return f"{RESP.ERROR.value}{value}{TERM}".encode()
 
     @staticmethod
     def integer(value: int):

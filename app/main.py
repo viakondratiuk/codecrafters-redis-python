@@ -19,8 +19,8 @@ def parse_args():
     )
     parser.add_argument(
         "--replicaof",
-        nargs=2,
-        metavar=("master_host", "master_port"),
+        # nargs=2,
+        # metavar=("master_host", "master_port"),
         type=str,
         help="Specifies the host and port of the master server.",
     )
@@ -35,7 +35,9 @@ async def main():
     config = ServerConfig(my=address)
     if args.replicaof is not None:
         config.mode = Mode.SLAVE
-        config.master = Address(host=args.replicaof[0], port=int(args.replicaof[1]))
+        # host, port = (args.replicaof[0], args.replicaof[1])
+        host, port = args.replicaof.split(" ")
+        config.master = Address(host=host, port=int(port))
 
     server = RedisServer(config)
     logging.info(f"Server is starting on {config.my.host}:{config.my.port}")
