@@ -4,7 +4,7 @@ import logging
 
 from app import constants
 from app.dataclasses import Address, Mode, ServerConfig
-from app.redis import RedisServer
+from app.redis import RedisMaster, RedisSlave
 
 logging.basicConfig(level=logging.INFO)
 
@@ -32,15 +32,16 @@ async def main():
     args = parse_args()
 
     address = Address(host="localhost", port=int(args.port))
-    config = ServerConfig(my=address)
+    config = ServerConfig(addr=address)
     if args.replicaof is not None:
         config.mode = Mode.SLAVE
         # host, port = (args.replicaof[0], args.replicaof[1])
         host, port = args.replicaof.split(" ")
-        config.master = Address(host=host, port=int(port))
+        config.master_addr = Address(host=host, port=int(port))
 
-    server = RedisServer(config)
-    logging.info(f"Server is starting on {config.my.host}:{config.my.port}")
+    server = RedisMaster(config) if args.replicaof is None else RedisSlave(config)
+
+    logging.info(f"Server is starting on {config.addr.host}:{config.addr.port}")
     await server.start()
 
 

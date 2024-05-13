@@ -15,7 +15,7 @@ class RESP(str, Enum):
     RDB_FILE = "$"
 
 
-class Encoder:
+class RESPEncoder:
     @staticmethod
     def bulk_string(value: str):
         return f"{RESP.BULK_STRING.value}{len(value)}{TERM}{value}{TERM}".encode()
