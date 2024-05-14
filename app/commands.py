@@ -20,7 +20,6 @@ class Command(str, Enum):
     INFO = "INFO"
     REPLCONF = "REPLCONF"
     PSYNC = "PSYNC"
-    GETACK = "GETACK"
 
     @staticmethod
     def is_propagated(cmd: str):
@@ -43,7 +42,7 @@ class CommandRunner:
             case Command.INFO.value:
                 return [CommandRunner.info(config, *args)]
             case Command.REPLCONF.value:
-                if Command.GETACK.value in args:
+                if "GETACK" in args:
                     return [CommandRunner.getack(*args)]
                 return [CommandRunner.replconf(*args)]
             case Command.PSYNC.value:
@@ -121,7 +120,8 @@ class CommandRunner:
 
     @staticmethod
     def getack(*args):
-        return CommandBuilder.build("REPLCONF", "ACK", "0")
+        response = ["REPLCONF", "ACK", str(args[0])]
+        return RESPEncoder.array([RESPEncoder.bulk_string(a) for a in response])
 
     @staticmethod
     def psync(config: ServerConfig, *args):
