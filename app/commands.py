@@ -142,7 +142,7 @@ class PsyncHandler(CommandHandler):
 @dataclass
 class WaitHandler(CommandHandler):
     def handle(self, *args) -> list[bytes]:
-        return RESPEncoder.integer(0)
+        return RESPEncoder.integer(len(self.config.replicas))
 
 
 class CommandsRunner:
