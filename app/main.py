@@ -3,8 +3,9 @@ import asyncio
 import logging
 
 from app import constants
-from app.dataclasses import Address, Mode, ServerConfig
-from app.redis import RedisMaster, RedisSlave
+from app.dataclasses import Mode, ServerConfig
+from app.datastore import DataStore
+from app.server import RedisMaster, RedisSlave
 
 logging.basicConfig(level=logging.INFO)
 
@@ -31,17 +32,38 @@ def parse_args():
 async def main():
     args = parse_args()
 
-    address = Address(host="localhost", port=int(args.port))
-    config = ServerConfig(addr=address)
+    # config = {
+    #     "host": "localhost",
+    #     "port": int(args.port),
+    #     "mode": server.Mode.MASTER if args.replicaof is None else server.Mode.SLAVE,
+    #     "data_store": DataStore()
+    # }
+    # if args.replicaof is None:
+    #     server = server.RedisMaster(**config)
+    # else:
+    #     # host, port = (args.replicaof[0], args.replicaof[1])
+    #     master_host, master_port = args.replicaof.split(" ")
+    #     server = server.RedisSlave(
+    #         **config,
+    #         master_host=master_host,
+    #         master_port=master_port
+    #     )
+
+    config = ServerConfig(
+        host="localhost",
+        port=int(args.port),
+        data_store=DataStore(),
+    )
     if args.replicaof is not None:
         config.mode = Mode.SLAVE
         # host, port = (args.replicaof[0], args.replicaof[1])
         host, port = args.replicaof.split(" ")
-        config.master_addr = Address(host=host, port=int(port))
+        config.master_host = host
+        config.master_port = port
 
     server = RedisMaster(config) if args.replicaof is None else RedisSlave(config)
 
-    logging.info(f"Server is starting on {config.addr.host}:{config.addr.port}")
+    logging.info(f"Server is starting on {server.config.host}:{server.config.port}")
     await server.start()
 
 
